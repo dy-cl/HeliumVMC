@@ -13,20 +13,19 @@ double generateRandomNum(double lower, double upper)
     std::default_random_engine generator(rd()); 
     std::uniform_real_distribution<double> distribution (lower, upper); 
 
-    double num = distribution(generator);
-    return num;
+    return distribution(generator);
 }
 
 // Populates a vector with random floats
 std::vector<double> generateRandomVector()
 {
-    std::vector<double> vector; 
     double upper = 5;
     double lower = -5;
+    std::vector<double> vector(3);
 
-    for (int i = 0; i < 3; i++) 
+    for (double value : vector) 
     {
-        vector.push_back(generateRandomNum(lower, upper)); // Add randomly generated float to element i of vector in bounds [upper, lower]
+        value = generateRandomNum(lower, upper); // Add randomly generated float to element i of vector in bounds [upper, lower]
     }
     return vector;
 }
@@ -34,7 +33,7 @@ std::vector<double> generateRandomVector()
 // Prints a vector
 void printVector(const std::vector<double> & vector)
 {
-    for (double value : vector) 
+    for (const double value : vector) 
     {
         std::cout << value << " ";
     }
@@ -44,7 +43,7 @@ void printVector(const std::vector<double> & vector)
 std::vector<double> unitVector(const std::vector<double>& vector)
 {
     double vectorSum = 0; 
-    for (double value : vector) 
+    for (const double value : vector) 
     {
         vectorSum += value*value; 
     }
@@ -52,14 +51,14 @@ std::vector<double> unitVector(const std::vector<double>& vector)
     double magnitude = std::sqrt(vectorSum); // Find magnitude 
     std::vector<double> unitVector(vector.size()); // Initialize vector with the same size as the input vector
     
-    for (int i = 0; i < vector.size(); ++i) 
+    for (int i = 0; i < vector.size(); i++) 
     {
         unitVector[i] = vector[i] / magnitude; 
     }
     return unitVector;
 }
 
-// Subtracts vectors
+// Subtracts two vectors
 std::vector<double> subtractVectors(const std::vector<double>& vector1, const std::vector<double>& vector2) 
 {
     std::vector<double> newVector(vector1.size());
@@ -84,7 +83,7 @@ double vectorDistance(const std::vector<double> & vector1, const std::vector<dou
     return distance;
 }
 
-// Calculate dot product of vectors
+// Calculates dot product of two vectors
 double vectorDotProduct(const std::vector<double> & vector1, const std::vector<double> & vector2)
 {   
     double vectorSum = 0;
@@ -107,7 +106,7 @@ std::vector<double> moveWalker(std::vector<double> oldPosition) {
     return newPosition;
 }
 
-// Function to test the above vector utilities
+// Displays result of above functions for checking
 void vectorUtilitiesTest()
 {
     std::cout << "TESTING VECTOR UTILS" << std::endl;

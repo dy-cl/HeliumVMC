@@ -1,5 +1,6 @@
 // main.cpp
 #include <iostream>
+#include <fstream>
 #include <math.h> 
 #include <list>
 #include <utility>
@@ -33,100 +34,91 @@ double localEnergy(std::vector<double> pos1, std::vector<double> pos2, double a)
     return localEnergy;
 }
 
-// Returns a list of all electron positions
-std::list<std::list<std::pair<std::vector<double>, std::vector<double>>>> generatePositions(int a)
+// Initialize walkers with random starting positions
+std::list<std::pair<std::vector<double>, std::vector<double>>> initializeWalkers(int nWalkers)
 {
-    std::list<std::pair<std::vector<double>, std::vector<double>>> currentWalkerPos; // Initialse walker starting positions (list of pairs of vectors)
-    std::list<std::list<std::pair<std::vector<double>, std::vector<double>>>> visitedPositions; // Initialise storage of positions (list of lists of pairs of vectors)
-    int nWalkers = 100; // Number of walkers
-    int nSteps = 10000; // Number of proposed moves
-
-    // Tracking for acceptance rate
-    int totalProposals = 0;
-    int acceptedMoves = 0;
-
-    for (int i = 0; i < nWalkers; i++)
-    {   
-        std::vector<double> vector1 = generateRandomVector();
-        std::vector<double> vector2 = generateRandomVector();
-        currentWalkerPos.push_back(std::make_pair(vector1, vector2)); // Generate initial walker positions
-
+    std::list<std::pair<std::vector<double>, std::vector<double>>> walkerPositions;
+    for (int i = 0; i < nWalkers; i++) {
+        walkerPositions.push_back({generateRandomVector(), generateRandomVector()});
     }
+    return walkerPositions;
+}
 
-    visitedPositions.push_back(currentWalkerPos); // Add initial posistions to visitedPositions
+// Propose a move for both walkers and check acceptance
+bool isMoveAccepted(const std::pair<std::vector<double>, std::vector<double>>& oldPositions, 
+                    const std::pair<std::vector<double>, std::vector<double>>& proposedPositions, 
+                    double alpha)
+{
+    double p = std::pow(trial(proposedPositions.first, proposedPositions.second, alpha) / 
+                        trial(oldPositions.first, oldPositions.second, alpha), 2);
+    
+    if (p >= 1) return true; // Accept move if p greater than 1 or
+    return p > generateRandomNum(0, 1); // Accept with probability p
+}
 
-    for (int i = 0; i < nSteps; i++) // Number of steps
-    {
-        for (auto& pair : currentWalkerPos) // For each pair of walkers
-        {
+// Perform walker simulation and store visited positions
+std::list<std::list<std::pair<std::vector<double>, std::vector<double>>>> simulateWalkers(double variationalParameter)
+{   
+    int nSteps = 34000;
+    int nWalkers = 400;
+    auto walkerPositions = initializeWalkers(nWalkers);
+    std::list<std::list<std::pair<std::vector<double>, std::vector<double>>>> visitedPositions; //Create list to store all visited positions
+    visitedPositions.push_back(walkerPositions); // Add initial positions to visitedPositions
+
+    int acceptedMoves = 0, totalProposals = 0;
+
+    for (int step = 0; step < nSteps; step++) { // nSteps iterations
+        for (auto & walker : walkerPositions) { // For each walker
             totalProposals++;
+            std::pair<std::vector<double>, std::vector<double>> proposedPositions = { // Make proposal
+                moveWalker(walker.first),
+                moveWalker(walker.second)
+            };
 
-            // Propose a move for both walkers
-            std::vector<double> old1 = pair.first;
-            std::vector<double> old2 = pair.second;
-            std::vector<double> proposed1 = moveWalker(pair.first);
-            std::vector<double> proposed2 = moveWalker(pair.second);
-
-            // Calculate the ratio p
-            double p = std::pow((trial(proposed1, proposed2, a)/trial(old1, old2, a)), 2);
-
-            // Acceptance criteria
-            if (p >= 1) // If p is greater than 1 accept
-            {
-                pair.first = proposed1;
-                pair.second = proposed2;
+            if (isMoveAccepted(walker, proposedPositions, variationalParameter)) { // Accept or reject proposal
+                walker = proposedPositions;
                 acceptedMoves++;
             }
-            if (p < 1){
-                double x = generateRandomNum(0,1);
-                if (p > x){ // If p is less than 1, accept with probability p
-                    pair.first = proposed1;
-                    pair.second = proposed2;
-                    acceptedMoves++;
-                }
-            }
-            // Else nothing is changed
         }
-        visitedPositions.push_back(currentWalkerPos); // Add current positions to visitedPositions
+        visitedPositions.push_back(walkerPositions); // Record the positions at each step
     }
 
-    std::cout << "Acceptance Rate: " << (double)acceptedMoves / totalProposals << std::endl;   
+    std::cout << "Acceptance Rate: " << static_cast<double>(acceptedMoves) / totalProposals << std::endl;
 
-    // Discard the first 10% of visited positions (walkers are thermalising here)
-    for (int i = 0; i < nSteps*0.1; i++)
-    {
+    // Discard the first 10% of visited positions for thermalisation
+    for (int i = 0; i < nSteps * 0.1; ++i) {
         visitedPositions.pop_front();
     }
+
     return visitedPositions;
 }
 
 int main()
 {   
-    // vectorUtilitiesTest(); // Test vector utilities
-    int a = 0.05; // Example variational parameter, will vary later
+    std::ofstream outFile("results.txt"); // Open file for writing
 
-    for (double a = 0.05; a <= 0.25; a += 0.05) // For each variational parameter
-    {
-        std::cout << "a: " << a << std::endl;
-        std::list<std::list<std::pair<std::vector<double>, std::vector<double>>>> visitedPositions = generatePositions(a); // Generate positions
+    for (double alpha = 0.05; alpha <= 0.25; alpha += 0.05) { // For each value of the variational parameter
+        std::cout << "Variational Parameter (alpha): " << alpha << std::endl;
+
+        auto visitedPositions = simulateWalkers(alpha); // Generate the visited positions
         double totalLocalEnergy = 0.0;
         int totalPairs = 0;
 
-        for (const auto& step : visitedPositions) // For each specific step in visitedPositions 
-        {
-            for (const auto& pair : step) // For each pair of walkers at that step
-            {
-                double localEnergyValue = localEnergy(pair.first, pair.second, a);
-                totalLocalEnergy += localEnergyValue;
+        for (const auto & step : visitedPositions) { // For each step
+            for (const auto & walker : step) { // For each pair of walkers at that step
+                totalLocalEnergy += localEnergy(walker.first, walker.second, alpha);
                 ++totalPairs;
             }
         }
 
-        double localenergy = totalLocalEnergy / totalPairs;
-        std::cout << "Energy for a: " << a << ": " << localenergy << std::endl;
+        double averageLocalEnergy = totalLocalEnergy / totalPairs; // Calculate final energy averaged over all pairs of walkers and steps
+        std::cout << "Average Local Energy: " << averageLocalEnergy << std::endl;
+        outFile << "Average Local Energy for alpha: " << alpha << ": " << averageLocalEnergy << std::endl;
         std::cout << std::endl;
+        outFile << std::endl;
     }
 
+    outFile.close(); // Close the file
     return 0;
 }
 
